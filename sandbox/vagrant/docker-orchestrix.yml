@@ -1,0 +1,43 @@
+master_1:
+  image: orchestrix/master
+  container_name: master-01
+  ports:
+    - 8095:8095
+    - 2551:2551
+  volumes:
+    - /vagrant/sandbox/vagrant/etc/orchestrix:/opt/orchestrix/conf
+  command: -b 192.168.50.25:2551 --nodes 192.168.50.25:2551,192.168.50.25:2552 --cs 192.168.50.25:9042
+
+master_2:
+  image: orchestrix/master
+  container_name: master-02
+  ports:
+    - 8096:8095
+    - 2552:2551
+  volumes:
+    - /vagrant/sandbox/vagrant/etc/orchestrix:/opt/orchestrix/conf
+  command: -b 192.168.50.25:2552 --nodes 192.168.50.25:2551,192.168.50.25:2552 --cs 192.168.50.25:9042
+
+worker_1:
+  image: orchestrix/worker
+  container_name: worker-01
+  links:
+    - master_1:master_1
+    - master_2:master_2
+  ports:
+    - 5001:5001
+  volumes:
+    - /vagrant/sandbox/vagrant/etc/orchestrix:/opt/orchestrix/conf
+  command: --master 192.168.50.25:2551,192.168.50.25:2552 -b 192.168.50.25:5001
+
+worker_2:
+  image: orchestrix/worker
+  container_name: worker-02
+  links:
+    - master_1:master_1
+    - master_2:master_2
+  ports:
+    - 5002:5001
+  volumes:
+    - /vagrant/sandbox/vagrant/etc/orchestrix:/opt/orchestrix/conf
+  command: --master 192.168.50.25:2551,192.168.50.25:2552 -b 192.168.50.25:5002

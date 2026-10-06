@@ -1,0 +1,65 @@
+version: '2'
+services:
+  cassandra:
+    image: cassandra
+    hostname: cassandra
+    ports:
+      - 9042:9042
+      - 7000:7000
+      - 9160:9160
+
+  grafana:
+    image: grafana/grafana
+    hostname: grafana
+    ports:
+      - 3000:3000
+    links:
+      - prometheus
+
+  prometheus:
+    image: prom/prometheus
+    hostname: prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./etc/prometheus/config.yml:/etc/prometheus/prometheus.yml
+
+  master1:
+    image: orchestrix/master<localBuild>
+    hostname: "master-01"
+    ports:
+      - 8095:8095
+      - 2551:2551
+      - 9095:9095
+    links:
+      - cassandra
+    volumes:
+      - ./etc/orchestrix:/opt/orchestrix/conf
+    command: --seed --cs cassandra:9042 -b master1:2551
+
+  master2:
+    image: orchestrix/master<localBuild>
+    hostname: "master-02"
+    ports:
+      - 8096:8095
+      - 2552:2551
+      - 9096:9095
+    links:
+      - cassandra
+      - master1
+    volumes:
+      - ./etc/orchestrix:/opt/orchestrix/conf
+    command: --nodes master1:2551 --cs cassandra:9042 -b master2:2552
+
+  worker:
+    image: orchestrix/worker<localBuild>
+    hostname: "worker"
+    ports:
+      - 5001:5001
+      - 9097:9095
+    links:
+      - master1
+      - master2
+    volumes:
+      - ./etc/orchestrix:/opt/orchestrix/conf
+    command: --master master1:2551,master2:2551 -b worker:5001

@@ -1,0 +1,101 @@
+version: '2'
+services:
+  consul_server:
+    image: consul
+    hostname: consul_server
+    ports:
+      - "8400:8400"
+      - "8500:8500"
+      - "8600:53"
+    command: agent -server -bootstrap -client=0.0.0.0 -ui
+
+  consul_agent:
+    image: consul
+    hostname: consul_agent
+    ports:
+      - "8400"
+      - "8500"
+      - "8600"
+    depends_on:
+      - "consul_server"
+    command: agent -join=consul_server -client=0.0.0.0
+
+  registrator:
+    image: gliderlabs/registrator
+    depends_on:
+      - "consul_server"
+      - "consul_agent"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock
+    command: consul://consul_agent:8500
+
+  graphite:
+    image: kamon/grafana_graphite
+    hostname: graphite
+    ports:
+      - 8080:80
+      - 8081:81
+
+  cassandra:
+    image: cassandra
+    hostname: cassandra
+    ports:
+      - "9042:9042"
+      - "7000:7000"
+      - "9160:9160"
+
+  master1:
+    image: orchestrix/master<localBuild>
+    hostname: master1
+    ports:
+      - "8095:8095"
+      - "2551:2551"
+    depends_on:
+      - "consul_server"
+      - "consul_agent"
+      - "graphite"
+    links:
+      - cassandra
+    volumes:
+      - ./etc/orchestrix/master:/opt/orchestrix/conf
+    command: -b master1:2551 --cs cassandra:9042
+
+  master2:
+    image: orchestrix/master<localBuild>
+    hostname: master2
+    ports:
+      - "8096:8095"
+      - "2552:2551"
+    depends_on:
+      - "consul_server"
+      - "consul_agent"
+      - "graphite"
+    links:
+      - cassandra
+    volumes:
+      - ./etc/orchestrix/master:/opt/orchestrix/conf
+    command: -b master2:2552 --cs cassandra:9042
+
+  worker1:
+    image: orchestrix/worker<localBuild>
+    depends_on:
+      - "master1"
+      - "master2"
+      - "graphite"
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./etc/orchestrix/worker:/opt/orchestrix/conf
+    command: -b worker1:5001
+
+  worker2:
+    image: orchestrix/worker<localBuild>
+    depends_on:
+      - "master1"
+      - "master2"
+      - "graphite"
+    ports:
+      - "5002:5001"
+    volumes:
+      - ./etc/orchestrix/worker:/opt/orchestrix/conf
+    command: -b worker2:5002
